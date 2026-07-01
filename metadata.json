@@ -1,0 +1,6 @@
+{
+  "name": "POIS ERP System",
+  "description": "Enterprise Resource Planning (ERP) platform for ISP resellers and fiber systems integrators, managing CRM, product catalog rates, quotations, costing sheets, invoices, work orders, project pipelines, and role-based approvals.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
