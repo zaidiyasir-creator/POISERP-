@@ -90,6 +90,11 @@ export const SettingsModule: React.FC = () => {
     setUserError('');
     setUserSuccess('');
 
+    if (currentUser.role !== 'admin') {
+      setUserError('Only administrators have permission to register new system users.');
+      return;
+    }
+
     if (!newUser.name.trim()) {
       setUserError('Name is required.');
       return;
@@ -122,6 +127,10 @@ export const SettingsModule: React.FC = () => {
   };
 
   const handleDeleteUser = (userId: string) => {
+    if (currentUser.role !== 'admin') {
+      alert('Only administrators have permission to remove users.');
+      return;
+    }
     if (userId === currentUser.id) {
       alert('Cannot delete the currently simulated user.');
       return;
@@ -379,73 +388,88 @@ export const SettingsModule: React.FC = () => {
       {activeSubTab === 'users' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Add User form card */}
-          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-xs h-fit">
-            <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2 pb-4 border-b border-gray-100">
-              <UserPlus className="w-4 h-4 text-brand-600" />
-              <span>Register New Login User</span>
-            </h3>
+          {currentUser.role === 'admin' ? (
+            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-xs h-fit">
+              <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2 pb-4 border-b border-gray-100">
+                <UserPlus className="w-4 h-4 text-brand-600" />
+                <span>Register New Login User</span>
+              </h3>
 
-            <form onSubmit={handleAddUser} className="space-y-4 mt-4">
-              {userError && (
-                <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs rounded-lg font-medium">
-                  {userError}
+              <form onSubmit={handleAddUser} className="space-y-4 mt-4">
+                {userError && (
+                  <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs rounded-lg font-medium">
+                    {userError}
+                  </div>
+                )}
+                {userSuccess && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs rounded-lg font-medium">
+                    {userSuccess}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Kenneth Kumar"
+                    value={newUser.name}
+                    onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                    className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-600 text-gray-800"
+                  />
                 </div>
-              )}
-              {userSuccess && (
-                <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs rounded-lg font-medium">
-                  {userSuccess}
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Corporate Email</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. kenneth@pois-integrator.com.my"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                    className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-600 text-gray-800"
+                  />
                 </div>
-              )}
 
-              <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1">Full Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Kenneth Kumar"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                  className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-600 text-gray-800"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">ERP Security Role</label>
+                  <select
+                    value={newUser.role}
+                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value as UserRole })}
+                    className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-600 text-gray-800"
+                  >
+                    <option value="sales_rep">Sales</option>
+                    <option value="hod_sales">HOD</option>
+                    <option value="ceo">CEO</option>
+                    <option value="technician">Technician</option>
+                    <option value="admin">System Admin</option>
+                  </select>
+                  <p className="text-[10px] text-gray-400 mt-1.5 leading-relaxed">
+                    Registering this user adds them to the live ERP system database. You can instantly simulate acting as them in the bottom sidebar switch panel.
+                  </p>
+                </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1">Corporate Email</label>
-                <input
-                  type="email"
-                  placeholder="e.g. kenneth@pois-integrator.com.my"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-600 text-gray-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1">ERP Security Role</label>
-                <select
-                  value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as UserRole })}
-                  className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-600 text-gray-800"
+                <button
+                  type="submit"
+                  className="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs py-2.5 px-4 rounded-lg transition-all flex items-center justify-center gap-2 shadow-xs mt-2"
                 >
-                  <option value="sales_rep">Sales Rep (SARAH TAN style)</option>
-                  <option value="hod_sales">HOD Sales (KEITH LIM style)</option>
-                  <option value="ceo">CEO (DR AZMAN style)</option>
-                  <option value="technician">Technician (NIZAM style)</option>
-                  <option value="admin">System Admin (SYS ADMIN style)</option>
-                </select>
-                <p className="text-[10px] text-gray-400 mt-1.5 leading-relaxed">
-                  Registering this user adds them to the live ERP system database. You can instantly simulate acting as them in the bottom sidebar switch panel.
-                </p>
+                  <Plus className="w-4 h-4" />
+                  <span>Create ERP Account</span>
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 h-fit space-y-4">
+              <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2 pb-4 border-b border-slate-200">
+                <Lock className="w-4 h-4 text-slate-500" />
+                <span>Administrative Privileges Required</span>
+              </h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                Only simulated **System Administrators (Admin)** have the authorization to register new login users or deactivate active employee profiles.
+              </p>
+              <div className="bg-amber-50 border border-amber-100 text-amber-800 text-[11px] p-3 rounded-lg leading-relaxed font-medium">
+                💡 **Your Current Action Privilege:** Under your current role as a non-admin, you are authorized **only to perform Reset Passwords** on existing directories.
               </div>
-
-              <button
-                type="submit"
-                className="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs py-2.5 px-4 rounded-lg transition-all flex items-center justify-center gap-2 shadow-xs mt-2"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Create ERP Account</span>
-              </button>
-            </form>
-          </div>
+            </div>
+          )}
 
           {/* User List Table */}
           <div className="bg-white border border-gray-200 rounded-xl shadow-xs lg:col-span-2 overflow-hidden flex flex-col">
@@ -511,13 +535,15 @@ export const SettingsModule: React.FC = () => {
                         {u.id === currentUser.id ? (
                           <span className="text-[10px] text-gray-400 italic px-1">Simulated Now</span>
                         ) : (
-                          <button
-                            onClick={() => handleDeleteUser(u.id)}
-                            className="p-1.5 text-rose-600 hover:text-rose-900 hover:bg-rose-50 rounded-lg transition-all"
-                            title="Deactivate account access"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          currentUser.role === 'admin' && (
+                            <button
+                              onClick={() => handleDeleteUser(u.id)}
+                              className="p-1.5 text-rose-600 hover:text-rose-900 hover:bg-rose-50 rounded-lg transition-all"
+                              title="Deactivate account access"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )
                         )}
                       </td>
                     </tr>

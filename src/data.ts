@@ -448,10 +448,10 @@ export const seedClients: Client[] = [
 
 // Seed Users representing roles
 export const seedUsers: User[] = [
-  { id: 'U-01', name: 'Sarah Tan', role: 'sales_rep', email: 'sarah.tan@pois-integrator.com.my', password: 'admin123' },
-  { id: 'U-02', name: 'Keith Lim', role: 'hod_sales', email: 'keith.lim@pois-integrator.com.my', password: 'admin123' },
-  { id: 'U-03', name: 'Dr. Azman Ismail', role: 'ceo', email: 'azman.ismail@pois-integrator.com.my', password: 'admin123' },
-  { id: 'U-04', name: 'Nizam Razak', role: 'technician', email: 'nizam.r@pois-integrator.com.my', password: 'admin123' },
+  { id: 'U-01', name: 'Sarah Tan', role: 'sales_rep', email: 'demo@pois-integrator.com.my', password: 'demo123' },
+  { id: 'U-02', name: 'Keith Lim', role: 'hod_sales', email: 'keith.lim@pois-integrator.com.my', password: 'demo123' },
+  { id: 'U-03', name: 'Dr. Azman Ismail', role: 'ceo', email: 'azman.ismail@pois-integrator.com.my', password: 'demo123' },
+  { id: 'U-04', name: 'Nizam Razak', role: 'technician', email: 'nizam.r@pois-integrator.com.my', password: 'demo123' },
   { id: 'U-05', name: 'Sys Admin', role: 'admin', email: 'admin@pois-integrator.com.my', password: 'admin123' }
 ];
 

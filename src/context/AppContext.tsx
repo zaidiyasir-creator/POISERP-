@@ -133,6 +133,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     })
   );
 
+  // Fetch initial menu visibility from the server once on mount
+  useEffect(() => {
+    fetch('/api/menu-visibility')
+      .then(res => {
+        if (!res.ok) throw new Error('API response error');
+        return res.json();
+      })
+      .then(data => {
+        if (data && data.menuVisibility && Object.keys(data.menuVisibility).length > 0) {
+          setMenuVisibility(data.menuVisibility);
+        }
+      })
+      .catch(err => console.warn('Could not fetch server-side menu visibility:', err));
+  }, []);
+
   const [nextcloudConfig, setNextcloudConfig] = useState(() => 
     getStoredData('pois_nextcloudConfig', {
       url: 'https://nextcloud.pois-integrator.com.my',
@@ -153,7 +168,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => { setStoredData('pois_invoices', invoices); }, [invoices]);
   useEffect(() => { setStoredData('pois_projects', projects); }, [projects]);
   useEffect(() => { setStoredData('pois_users', users); }, [users]);
-  useEffect(() => { setStoredData('pois_menuVisibility', menuVisibility); }, [menuVisibility]);
+  
+  useEffect(() => { 
+    setStoredData('pois_menuVisibility', menuVisibility); 
+    // Synchronize to persistent server-side store
+    fetch('/api/menu-visibility', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ menuVisibility })
+    }).catch(err => console.error('Failed to update server-side menu visibility:', err));
+  }, [menuVisibility]);
 
   const setCurrentUser = (user: User) => {
     setCurrentUserRaw(user);

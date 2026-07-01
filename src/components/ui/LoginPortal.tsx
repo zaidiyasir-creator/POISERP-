@@ -7,15 +7,18 @@ import { Lock, Mail, ArrowRight, UserCheck, Shield, Key, ArrowLeft, CheckCircle 
 export const LoginPortal: React.FC = () => {
   const { users, login, setUsers } = useApp();
   const [showDirectory, setShowDirectory] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User>(users.find(u => u.role === 'admin') || users[0] || {
-    id: 'U-05',
-    name: 'Sys Admin',
-    role: 'admin',
-    email: 'admin@pois-integrator.com.my',
-    password: 'admin123'
-  });
+  const [selectedUser, setSelectedUser] = useState<User>(
+    users.find(u => u.email === 'demo@pois-integrator.com.my') || 
+    users[0] || {
+      id: 'U-01',
+      name: 'Sarah Tan',
+      role: 'sales_rep',
+      email: 'demo@pois-integrator.com.my',
+      password: 'demo123'
+    }
+  );
   const [emailInput, setEmailInput] = useState(selectedUser.email);
-  const [password, setPassword] = useState(selectedUser.password || 'admin123');
+  const [password, setPassword] = useState(selectedUser.password || (selectedUser.email === 'admin@pois-integrator.com.my' ? 'admin123' : 'demo123'));
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -30,7 +33,7 @@ export const LoginPortal: React.FC = () => {
   const handleUserSelect = (user: User) => {
     setSelectedUser(user);
     setEmailInput(user.email);
-    setPassword(user.password || 'admin123');
+    setPassword(user.password || (user.email === 'admin@pois-integrator.com.my' ? 'admin123' : 'demo123'));
     setError('');
   };
 
@@ -84,7 +87,7 @@ export const LoginPortal: React.FC = () => {
       // Find user by email
       const match = users.find(u => u.email.toLowerCase() === emailInput.trim().toLowerCase());
       if (match) {
-        const expectedPassword = match.password || 'admin123';
+        const expectedPassword = match.password || (match.email === 'admin@pois-integrator.com.my' ? 'admin123' : 'demo123');
         if (password === expectedPassword) {
           login(match);
         } else {
@@ -270,14 +273,14 @@ export const LoginPortal: React.FC = () => {
                 <p className="text-xs text-slate-400">Enter your email and password to access the ERP corporate portal.</p>
               </div>
 
-              {/* Default Admin Credentials Banner */}
+              {/* Default Demo Credentials Banner */}
               <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 space-y-1 text-xs">
                 <div className="flex items-center gap-1.5 text-brand-400 font-bold uppercase tracking-wider text-[10px] mb-1">
                   <Lock className="w-3.5 h-3.5" />
-                  <span>Default Admin Credentials</span>
+                  <span>Default Demo Credentials</span>
                 </div>
-                <p className="font-mono">Email: <span className="text-white select-all">admin@pois-integrator.com.my</span></p>
-                <p className="font-mono">Password: <span className="text-white select-all">admin123</span></p>
+                <p className="font-mono">Email: <span className="text-white select-all font-semibold">demo@pois-integrator.com.my</span></p>
+                <p className="font-mono">Password: <span className="text-white select-all font-semibold font-mono">demo123</span></p>
               </div>
 
               {/* Directory Grid (Hidden by default) */}
