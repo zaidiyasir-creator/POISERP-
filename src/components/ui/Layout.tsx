@@ -4,7 +4,7 @@ import { User, UserRole } from '../../types';
 import { 
   LayoutDashboard, Users, BookOpen, FileText, Receipt, 
   Wrench, Activity, ShieldCheck, RefreshCw, AlertTriangle, Settings, LogOut,
-  KeyRound, Eye, EyeOff, Lock, X
+  KeyRound, Eye, EyeOff, Lock, X, AlertCircle, LayoutGrid
 } from 'lucide-react';
 import { PoisLogo } from './PoisLogo';
 
@@ -16,7 +16,7 @@ interface LayoutProps {
 
 
 export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
-  const { currentUser, users, setUsers, setCurrentUser, jobs, projects, menuVisibility, logout } = useApp();
+  const { currentUser, users, setUsers, setCurrentUser, jobs, projects, menuVisibility, logout, troubleTickets } = useApp();
 
   // Reset Password states
   const [showResetModal, setShowResetModal] = useState(false);
@@ -28,10 +28,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  
+  // Sidebar collapsed state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Find overdue jobs or projects at SLA risk (delivery time exceeding 14-30 working days)
   const slaRiskProjects = projects.filter(p => p.atSlaRisk).length;
   const pendingJobs = jobs.filter(j => j.status !== 'closed' && j.status !== 'activated').length;
+  const activeTicketsCount = troubleTickets ? troubleTickets.filter(t => ['open', 'investigating'].includes(t.status)).length : 0;
 
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -42,6 +46,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
     { id: 'jobs', label: 'Job Scheduling', icon: Wrench },
     { id: 'projects', label: 'Project Timelines', icon: Activity },
     { id: 'selftests', label: 'Pricing Self-Tests', icon: ShieldCheck },
+    { id: 'tickets', label: 'Trouble Tickets', icon: AlertCircle },
     { id: 'settings', label: 'System Settings', icon: Settings }
   ];
 
@@ -117,42 +122,49 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
   return (
     <div className="min-h-screen flex bg-gray-50/50 font-sans">
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col border-r border-slate-800 shrink-0">
-        <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-          {/* Branded Logo */}
-          <PoisLogo className="w-8 h-8" />
-          <div>
-            <h1 className="font-bold text-sm tracking-tight leading-none text-white">POIS ERP SYSTEM</h1>
-            <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest font-semibold">Integrator ERP</p>
+      <aside className={`bg-slate-900 text-slate-100 flex flex-col border-r border-slate-800 shrink-0 transition-all duration-300 overflow-hidden ${isSidebarCollapsed ? 'w-0 border-r-0' : 'w-64'}`}>
+        <div className="w-64 flex flex-col h-full shrink-0">
+          <div className="p-6 border-b border-slate-800 flex items-center gap-3">
+            {/* Branded Logo */}
+            <PoisLogo className="w-8 h-8" />
+            <div>
+              <h1 className="font-bold text-sm tracking-tight leading-none text-white">POIS ERP SYSTEM</h1>
+              <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest font-semibold">Integrator ERP</p>
+            </div>
           </div>
-        </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-4 py-6 space-y-1">
-          {filteredNavigationItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  isActive 
-                    ? 'bg-brand-600 text-white shadow-sm' 
-                    : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100'
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                <span>{item.label}</span>
-                {item.id === 'jobs' && pendingJobs > 0 && (
-                  <span className="ml-auto bg-slate-800 text-brand-200 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-700">
-                    {pendingJobs}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+          {/* Navigation */}
+          <nav className="flex-1 px-4 py-6 space-y-1">
+            {filteredNavigationItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    isActive 
+                      ? 'bg-brand-600 text-white shadow-sm' 
+                      : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                  <span>{item.label}</span>
+                  {item.id === 'jobs' && pendingJobs > 0 && (
+                    <span className="ml-auto bg-slate-800 text-brand-200 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-700">
+                      {pendingJobs}
+                    </span>
+                  )}
+                  {item.id === 'tickets' && activeTicketsCount > 0 && (
+                    <span className="ml-auto bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-rose-600 animate-pulse">
+                      {activeTicketsCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </aside>
 
       {/* Main Area */}
@@ -160,6 +172,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
         {/* Top Header */}
         <header className="h-16 bg-white border-b border-gray-100 px-8 flex items-center justify-between shadow-xs shrink-0">
           <div className="flex items-center gap-3">
+            {/* Sidebar Toggle Button (Red Grid Icon Style) */}
+            <button
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="p-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white transition-all shadow-xs flex items-center justify-center cursor-pointer mr-2 shrink-0"
+              title={isSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
+            >
+              <LayoutGrid className="w-5 h-5" />
+            </button>
             <h2 className="text-base font-semibold text-gray-800 capitalize">
               {navigationItems.find(n => n.id === activeTab)?.label}
             </h2>

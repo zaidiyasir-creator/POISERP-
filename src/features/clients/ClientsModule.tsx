@@ -10,7 +10,7 @@ import {
 export const ClientsModule: React.FC = () => {
   const { 
     clients, addClient, quotations, invoices, projects, currentUser,
-    triggerClientCreate, setTriggerClientCreate
+    triggerClientCreate, setTriggerClientCreate, updateClient
   } = useApp();
   
   // Search & Filter State
@@ -24,13 +24,43 @@ export const ClientsModule: React.FC = () => {
   // New Client Form Modal State
   const [showAddModal, setShowAddModal] = useState(false);
 
+  // Edit Client Form Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editClientState, setEditClientState] = useState<Partial<Client>>({});
+  const [editOldId, setEditOldId] = useState('');
+
+  const handleOpenAddModal = () => {
+    setNewClient({
+      id: 'C-' + Math.floor(100 + Math.random() * 900),
+      name: '',
+      regNo: '',
+      billingAddress: '',
+      siteAddress: '',
+      phone: '',
+      fax: '',
+      contactPerson: '',
+      contactEmail: '',
+      industry: '',
+      status: 'lead',
+      accountManager: currentUser.name
+    });
+    setShowAddModal(true);
+  };
+
+  const handleStartEdit = (client: Client) => {
+    setEditClientState({ ...client });
+    setEditOldId(client.id);
+    setShowEditModal(true);
+  };
+
   React.useEffect(() => {
     if (triggerClientCreate) {
-      setShowAddModal(true);
+      handleOpenAddModal();
       setTriggerClientCreate(false);
     }
   }, [triggerClientCreate, setTriggerClientCreate]);
   const [newClient, setNewClient] = useState<Partial<Client>>({
+    id: '',
     name: '',
     regNo: '',
     billingAddress: '',
@@ -61,16 +91,25 @@ export const ClientsModule: React.FC = () => {
       return;
     }
 
+    const customerId = newClient.id?.trim() || ('C-' + Math.floor(100 + Math.random() * 900));
+
+    // Prevent duplicate Customer IDs
+    const exists = clients.some(c => c.id.toLowerCase() === customerId.toLowerCase());
+    if (exists) {
+      alert(`The Customer ID "${customerId}" is already assigned. Please specify a unique Customer ID.`);
+      return;
+    }
+
     const client: Client = {
-      id: 'C-' + Math.floor(100 + Math.random() * 900),
-      name: newClient.name,
+      id: customerId,
+      name: newClient.name.trim(),
       regNo: newClient.regNo || 'Pending Reg No.',
       billingAddress: newClient.billingAddress || 'To be specified',
       siteAddress: newClient.siteAddress || newClient.billingAddress || 'To be specified',
       phone: newClient.phone || '',
       fax: newClient.fax || '',
-      contactPerson: newClient.contactPerson,
-      contactEmail: newClient.contactEmail,
+      contactPerson: newClient.contactPerson.trim(),
+      contactEmail: newClient.contactEmail.trim(),
       industry: newClient.industry || 'General Business',
       status: (newClient.status as ClientStatus) || 'lead',
       accountManager: currentUser.name,
@@ -80,24 +119,51 @@ export const ClientsModule: React.FC = () => {
     addClient(client);
     setShowAddModal(false);
     setSelectedClient(client); // focus detail on new client
-    setNewClient({
-      name: '',
-      regNo: '',
-      billingAddress: '',
-      siteAddress: '',
-      phone: '',
-      fax: '',
-      contactPerson: '',
-      contactEmail: '',
-      industry: '',
-      status: 'lead',
-      accountManager: currentUser.name
-    });
+  };
+
+  const handleUpdateClient = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editClientState.id || !editClientState.name || !editClientState.contactPerson || !editClientState.contactEmail) {
+      alert('Please fill in required fields (Customer ID, Customer Name, Contact Person, Contact Email)');
+      return;
+    }
+
+    const newId = editClientState.id.trim();
+
+    // Check unique if changed
+    if (newId.toLowerCase() !== editOldId.toLowerCase()) {
+      const exists = clients.some(c => c.id.toLowerCase() === newId.toLowerCase());
+      if (exists) {
+        alert(`The Customer ID "${newId}" is already assigned to another customer. Please use a unique ID.`);
+        return;
+      }
+    }
+
+    const updated: Client = {
+      id: newId,
+      name: editClientState.name.trim(),
+      regNo: editClientState.regNo || 'Pending Reg No.',
+      billingAddress: editClientState.billingAddress || 'To be specified',
+      siteAddress: editClientState.siteAddress || editClientState.billingAddress || 'To be specified',
+      phone: editClientState.phone || '',
+      fax: editClientState.fax || '',
+      contactPerson: editClientState.contactPerson.trim(),
+      contactEmail: editClientState.contactEmail.trim(),
+      industry: editClientState.industry || 'General Business',
+      status: (editClientState.status as ClientStatus) || 'lead',
+      accountManager: editClientState.accountManager || currentUser.name,
+      contractExpiryDate: editClientState.contractExpiryDate || ''
+    };
+
+    updateClient(updated, editOldId);
+    setShowEditModal(false);
+    setSelectedClient(updated);
   };
 
   // Filter list
   const filteredClients = clients.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          c.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           c.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           c.accountManager.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
@@ -122,7 +188,7 @@ export const ClientsModule: React.FC = () => {
             <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by company name, contact person, or AM..."
+              placeholder="Search by customer name, customer ID, contact person, or AM..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-white border border-gray-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-600"
@@ -155,11 +221,11 @@ export const ClientsModule: React.FC = () => {
           
           {canEdit && (
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={handleOpenAddModal}
               className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs px-4 py-2.5 rounded-lg transition-all shadow-sm"
             >
               <Plus className="w-4 h-4" />
-              <span>Register Corporate</span>
+              <span>Register Customer</span>
             </button>
           )}
         </div>
@@ -170,7 +236,7 @@ export const ClientsModule: React.FC = () => {
         {/* Clients Table list */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-gray-800">Corporate Directory</h3>
+            <h3 className="text-sm font-bold text-gray-800">Customer Directory</h3>
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{filteredClients.length} Records found</span>
           </div>
 
@@ -178,7 +244,8 @@ export const ClientsModule: React.FC = () => {
             <table className="w-full text-left border-collapse min-w-[600px]">
               <thead>
                 <tr className="bg-gray-50 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                  <th className="px-6 py-3.5">Company Name</th>
+                  <th className="px-6 py-3.5">Customer ID</th>
+                  <th className="px-6 py-3.5">Customer Name</th>
                   <th className="px-6 py-3.5">Contact Person</th>
                   <th className="px-6 py-3.5">Account Manager</th>
                   <th className="px-6 py-3.5">Status</th>
@@ -194,6 +261,11 @@ export const ClientsModule: React.FC = () => {
                       selectedClient?.id === client.id ? 'bg-brand-50/20' : ''
                     }`}
                   >
+                    <td className="px-6 py-4 font-mono font-bold text-slate-600">
+                      <span className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
+                        {client.id}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 font-semibold text-gray-800">
                       <div>
                         <p className="text-gray-900 font-bold">{client.name}</p>
@@ -228,8 +300,8 @@ export const ClientsModule: React.FC = () => {
                 ))}
                 {filteredClients.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="text-center py-12 text-gray-400">
-                      No matching clients found. Use 'Register Corporate' to append records.
+                    <td colSpan={6} className="text-center py-12 text-gray-400">
+                      No matching customers found. Use 'Register Customer' to append records.
                     </td>
                   </tr>
                 )}
@@ -380,8 +452,8 @@ export const ClientsModule: React.FC = () => {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
               <div>
-                <h3 className="text-sm font-bold text-gray-800">Register New Corporate Corporate Account</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Initialize corporate CRM logs for quotations & fiber provisioning SLA</p>
+                <h3 className="text-sm font-bold text-gray-800">Register New Customer Account</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Initialize customer CRM logs for quotations & fiber provisioning SLA</p>
               </div>
               <button 
                 onClick={() => setShowAddModal(false)}
@@ -394,7 +466,19 @@ export const ClientsModule: React.FC = () => {
             <form onSubmit={handleCreateClient} className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="font-bold text-gray-700">Company Legal Name <span className="text-rose-600">*</span></label>
+                  <label className="font-bold text-gray-700">Customer ID <span className="text-rose-600">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. C-101"
+                    value={newClient.id}
+                    onChange={(e) => setNewClient({...newClient, id: e.target.value})}
+                    className="w-full bg-white border border-gray-200 rounded p-2 focus:outline-none focus:ring-1 focus:ring-brand-600 font-mono font-bold text-brand-700"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-gray-700">Customer Name <span className="text-rose-600">*</span></label>
                   <input
                     type="text"
                     required
@@ -406,7 +490,7 @@ export const ClientsModule: React.FC = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-bold text-gray-700">Company Registration No.</label>
+                  <label className="font-bold text-gray-700">Customer Registration No.</label>
                   <input
                     type="text"
                     placeholder="e.g. 199201018291 (471194-V)"
@@ -521,7 +605,176 @@ export const ClientsModule: React.FC = () => {
                   type="submit"
                   className="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-4 py-2 rounded-lg"
                 >
-                  Create Client
+                  Create Customer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Client Modal Form */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
+              <div>
+                <h3 className="text-sm font-bold text-gray-800">Edit Customer Account</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Modify customer CRM logs for quotations & fiber provisioning SLA</p>
+              </div>
+              <button 
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-400 hover:text-gray-900 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateClient} className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-gray-700">Customer ID <span className="text-rose-600">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. C-101"
+                    value={editClientState.id}
+                    onChange={(e) => setEditClientState({...editClientState, id: e.target.value})}
+                    className="w-full bg-white border border-gray-200 rounded p-2 focus:outline-none focus:ring-1 focus:ring-brand-600 font-mono font-bold text-brand-700"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-gray-700">Customer Name <span className="text-rose-600">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Maxis Broadband Sdn Bhd"
+                    value={editClientState.name}
+                    onChange={(e) => setEditClientState({...editClientState, name: e.target.value})}
+                    className="w-full bg-white border border-gray-200 rounded p-2 focus:outline-none focus:ring-1 focus:ring-brand-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-gray-700">Customer Registration No.</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 199201018291 (471194-V)"
+                    value={editClientState.regNo}
+                    onChange={(e) => setEditClientState({...editClientState, regNo: e.target.value})}
+                    className="w-full bg-white border border-gray-200 rounded p-2 focus:outline-none focus:ring-1 focus:ring-brand-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-gray-700">Primary Contact Person <span className="text-rose-600">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Melissa Wong"
+                    value={editClientState.contactPerson}
+                    onChange={(e) => setEditClientState({...editClientState, contactPerson: e.target.value})}
+                    className="w-full bg-white border border-gray-200 rounded p-2 focus:outline-none focus:ring-1 focus:ring-brand-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-gray-700">Contact Email Address <span className="text-rose-600">*</span></label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="e.g. melissa@corp.com"
+                    value={editClientState.contactEmail}
+                    onChange={(e) => setEditClientState({...editClientState, contactEmail: e.target.value})}
+                    className="w-full bg-white border border-gray-200 rounded p-2 focus:outline-none focus:ring-1 focus:ring-brand-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-gray-700">Primary Office Phone</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. +60 3-7848 4000"
+                    value={editClientState.phone}
+                    onChange={(e) => setEditClientState({...editClientState, phone: e.target.value})}
+                    className="w-full bg-white border border-gray-200 rounded p-2 focus:outline-none focus:ring-1 focus:ring-brand-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-gray-700">Office Fax</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. +60 3-7848 4111"
+                    value={editClientState.fax}
+                    onChange={(e) => setEditClientState({...editClientState, fax: e.target.value})}
+                    className="w-full bg-white border border-gray-200 rounded p-2 focus:outline-none focus:ring-1 focus:ring-brand-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-gray-700">Industry Sector</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Utilities / Oil & Gas"
+                    value={editClientState.industry}
+                    onChange={(e) => setEditClientState({...editClientState, industry: e.target.value})}
+                    className="w-full bg-white border border-gray-200 rounded p-2 focus:outline-none focus:ring-1 focus:ring-brand-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-gray-700">Lead Status</label>
+                  <select
+                    value={editClientState.status}
+                    onChange={(e) => setEditClientState({...editClientState, status: e.target.value as ClientStatus})}
+                    className="w-full bg-white border border-gray-200 rounded p-2 focus:outline-none focus:ring-1 focus:ring-brand-600"
+                  >
+                    <option value="lead">Early CRM Lead</option>
+                    <option value="quoted">Active Quote Sent</option>
+                    <option value="active">Active Signed Contract</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="churned">Churned</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-gray-700">Billing Postal Address</label>
+                <textarea
+                  placeholder="Enter full legal billing address..."
+                  value={editClientState.billingAddress}
+                  onChange={(e) => setEditClientState({...editClientState, billingAddress: e.target.value})}
+                  rows={2}
+                  className="w-full bg-white border border-gray-200 rounded p-2 focus:outline-none focus:ring-1 focus:ring-brand-600"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-gray-700">Installation Site Address (If different from Billing)</label>
+                <textarea
+                  placeholder="Enter physical site fiber drop termination coordinates/address..."
+                  value={editClientState.siteAddress}
+                  onChange={(e) => setEditClientState({...editClientState, siteAddress: e.target.value})}
+                  rows={2}
+                  className="w-full bg-white border border-gray-200 rounded p-2 focus:outline-none focus:ring-1 focus:ring-brand-600"
+                />
+              </div>
+
+              <div className="px-6 py-4 bg-slate-50 border-t border-gray-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-4 py-2 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-4 py-2 rounded-lg"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>

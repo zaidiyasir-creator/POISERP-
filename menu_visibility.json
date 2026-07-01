@@ -1,0 +1,17 @@
+{
+  "global:dashboard": true,
+  "global:clients": true,
+  "global:catalog": true,
+  "global:quotations": true,
+  "global:invoices": true,
+  "global:jobs": true,
+  "global:projects": true,
+  "global:selftests": true,
+  "global:tickets": true,
+  "global:settings": true,
+  "ceo:selftests": false,
+  "hod_sales:selftests": false,
+  "sales_rep:selftests": false,
+  "technician:selftests": false,
+  "admin:selftests": false
+}

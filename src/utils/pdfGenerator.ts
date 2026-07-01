@@ -1,6 +1,87 @@
 import { jsPDF } from 'jspdf';
 import { Quotation, Invoice, Client } from '../types';
 
+// Font caching state for premium fonts (Inter and JetBrains Mono)
+let cachedRegular: string | null = null;
+let cachedBold: string | null = null;
+let cachedMono: string | null = null;
+
+// Convert ArrayBuffer to Base64
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+// Ensure the premium web fonts are fetched and loaded
+export const ensureFontsLoaded = async () => {
+  if (cachedRegular && cachedBold && cachedMono) {
+    return;
+  }
+  try {
+    const [regRes, boldRes, monoRes] = await Promise.all([
+      fetch('https://cdn.jsdelivr.net/gh/rsms/inter@v3.19.3/docs/font-files/Inter-Regular.ttf'),
+      fetch('https://cdn.jsdelivr.net/gh/rsms/inter@v3.19.3/docs/font-files/Inter-Bold.ttf'),
+      fetch('https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@v2.242/fonts/ttf/JetBrainsMono-Regular.ttf')
+    ]);
+
+    if (!regRes.ok || !boldRes.ok || !monoRes.ok) {
+      throw new Error('Failed to fetch premium font files');
+    }
+
+    const [regBuf, boldBuf, monoBuf] = await Promise.all([
+      regRes.arrayBuffer(),
+      boldRes.arrayBuffer(),
+      monoRes.arrayBuffer()
+    ]);
+
+    cachedRegular = arrayBufferToBase64(regBuf);
+    cachedBold = arrayBufferToBase64(boldBuf);
+    cachedMono = arrayBufferToBase64(monoBuf);
+  } catch (error) {
+    console.warn('Custom premium font load failed, falling back to standard system fonts:', error);
+  }
+};
+
+const setupDocFontsAndOverride = (doc: jsPDF) => {
+  if (cachedRegular) {
+    doc.addFileToVFS('Inter-Regular.ttf', cachedRegular);
+    doc.addFont('Inter-Regular.ttf', 'Inter', 'normal');
+  }
+  if (cachedBold) {
+    doc.addFileToVFS('Inter-Bold.ttf', cachedBold);
+    doc.addFont('Inter-Bold.ttf', 'Inter', 'bold');
+  }
+  if (cachedMono) {
+    doc.addFileToVFS('JetBrainsMono-Regular.ttf', cachedMono);
+    doc.addFont('JetBrainsMono-Regular.ttf', 'JetBrainsMono', 'normal');
+  }
+
+  // Inject a custom font mapper override to map standard Helvetica/Courier to Inter/JetBrainsMono
+  const originalSetFont = doc.setFont;
+  doc.setFont = function(this: any, fontName: string, fontStyle?: string, encoding?: any) {
+    let name = fontName;
+    let style = fontStyle;
+    if (fontName === 'Helvetica' || fontName === 'helvetica') {
+      if (cachedRegular) {
+        name = 'Inter';
+      }
+    } else if (fontName === 'Courier' || fontName === 'courier') {
+      if (cachedMono) {
+        name = 'JetBrainsMono';
+        if (fontStyle === 'oblique' || fontStyle === 'italic') {
+          style = 'normal';
+        }
+      }
+    }
+    return originalSetFont.call(this, name, style, encoding);
+  } as any;
+};
+
 // Helper to format currency
 const formatRM = (val: number) => {
   return `RM ${val.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -75,12 +156,15 @@ export const drawPoisLogo = (doc: jsPDF, x: number, y: number, size: number) => 
   doc.triangle(q3[0].x, q3[0].y, q3[2].x, q3[2].y, q3[3].x, q3[3].y, 'F');
 };
 
-export const downloadQuotationPDF = (quotation: Quotation, client: Client | undefined) => {
+export const downloadQuotationPDF = async (quotation: Quotation, client: Client | undefined) => {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4'
   });
+
+  await ensureFontsLoaded();
+  setupDocFontsAndOverride(doc);
 
   // Margins & Dimensions
   const mLeft = 15;
@@ -198,7 +282,7 @@ export const downloadQuotationPDF = (quotation: Quotation, client: Client | unde
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(255, 255, 255);
-  doc.text(`PROJECT TITLE: ${quotation.title.toUpperCase()}`, mLeft + 4, projY + 5.5);
+  doc.text(`PROJECT: ${quotation.title.toUpperCase()}`, mLeft + 4, projY + 5.5);
 
   // --- ITEMS TABLE SECTION ---
   let tableY = 112;
@@ -214,12 +298,12 @@ export const downloadQuotationPDF = (quotation: Quotation, client: Client | unde
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(15, 23, 42);
-  doc.text('No.', mLeft + 2, tableY + 4.8);
+  doc.text('Item#', mLeft + 2, tableY + 4.8);
   doc.text('Service & Deliverable Specification', mLeft + 12, tableY + 4.8);
   doc.text('Qty', mLeft + 114, tableY + 4.8, { align: 'center' });
-  doc.text('Unit Price', mLeft + 140, tableY + 4.8, { align: 'right' });
+  doc.text('Unit Price (RM)', mLeft + 140, tableY + 4.8, { align: 'right' });
   doc.text('Tax (SST)', mLeft + 162, tableY + 4.8, { align: 'right' });
-  doc.text('Amount', mRight - 2, tableY + 4.8, { align: 'right' });
+  doc.text('Amount (RM)', mRight - 2, tableY + 4.8, { align: 'right' });
 
   // Draw Line Items
   tableY += 7;
@@ -240,12 +324,12 @@ export const downloadQuotationPDF = (quotation: Quotation, client: Client | unde
       doc.setFont('Helvetica', 'bold');
       doc.setFontSize(8);
       doc.setTextColor(15, 23, 42);
-      doc.text('No.', mLeft + 2, tableY + 4.8);
+      doc.text('Item#', mLeft + 2, tableY + 4.8);
       doc.text('Service & Deliverable Specification', mLeft + 12, tableY + 4.8);
       doc.text('Qty', mLeft + 114, tableY + 4.8, { align: 'center' });
-      doc.text('Unit Price', mLeft + 140, tableY + 4.8, { align: 'right' });
+      doc.text('Unit Price (RM)', mLeft + 140, tableY + 4.8, { align: 'right' });
       doc.text('Tax (SST)', mLeft + 162, tableY + 4.8, { align: 'right' });
-      doc.text('Amount', mRight - 2, tableY + 4.8, { align: 'right' });
+      doc.text('Amount (RM)', mRight - 2, tableY + 4.8, { align: 'right' });
       tableY += 7;
       doc.setFont('Helvetica', 'normal');
       doc.setFontSize(8.5);
@@ -345,19 +429,21 @@ export const downloadQuotationPDF = (quotation: Quotation, client: Client | unde
   
   const terms = [
     `1. Validity: This quotation is strictly valid for ${quotation.validityWeeks} weeks from the proposal date.`,
-    `2. Contract Lock-in commitment period: ${quotation.lockInMonths} months from the active billing start date.`,
-    `3. Delivery Period: Execution and physical fiber connectivity activation SLA is ${quotation.deliveryDays} working days from signed PO.`,
-    `4. SST: 8% Sales and Service Tax applies to applicable monthly lines, cabling fees, and setup. Deposits are tax exempt.`,
+    `2. Contract Lock-in commitment period: ${quotation.lockInMonths} months from the active billing start date. Early termination triggers standard remaining months penalties.`,
+    `3. Delivery Period: Execution and physical fiber connectivity activation SLA is ${quotation.deliveryDays} working days from signed Purchase Order (PO).`,
+    `4. SST: 8% Sales and Service Tax applies to applicable recurring monthly lines, cabling fees and engineering setup installations. Security deposits are tax exempt.`,
     `5. Payment Schedule: Refundable deposit on PO confirmation. Installation balance invoiced on site activation.`
   ];
   
   terms.forEach(term => {
-    doc.text(term, mLeft, tableY);
-    tableY += 4;
+    // Split long term lines to prevent overflow in the PDF
+    const termLines = doc.splitTextToSize(term, wContent);
+    doc.text(termLines, mLeft, tableY);
+    tableY += termLines.length * 4;
   });
 
   // --- SIGNATURE SECTION ---
-  tableY += 8;
+  tableY += 4;
   if (tableY > 250) {
     doc.addPage();
     tableY = 20;
@@ -374,7 +460,7 @@ export const downloadQuotationPDF = (quotation: Quotation, client: Client | unde
   doc.setFont('Courier', 'oblique');
   doc.setFontSize(10);
   doc.setTextColor(3, 105, 161);
-  doc.text('Sarah Tan (Sales AM)', mLeft, tableY + 14);
+  doc.text(`${quotation.preparedBy} (Account Manager)`, mLeft, tableY + 14);
 
   doc.setDrawColor(203, 213, 225);
   doc.setLineWidth(0.2);
@@ -395,31 +481,34 @@ export const downloadQuotationPDF = (quotation: Quotation, client: Client | unde
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(16, 185, 129); // emerald-500
-    doc.text('ACCEPTED VIA CUSTOMER SECURE PORTAL', mLeft + sigW + 20, tableY + 10);
+    doc.text('Accepted via Digital PO Client stamp (Verified)', mLeft + sigW + 20, tableY + 10);
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
-    doc.text(`Signed Date: ${quotation.dateAccepted || quotation.date}`, mLeft + sigW + 20, tableY + 14);
+    doc.text(`Date Accepted: ${quotation.dateAccepted || quotation.date}`, mLeft + sigW + 20, tableY + 14);
   } else {
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184);
-    doc.text('Sign here to accept commercial terms', mLeft + sigW + 20, tableY + 14);
+    doc.text('Signature & Stamp Slip', mLeft + sigW + 20, tableY + 14);
   }
 
   doc.line(mLeft + sigW + 20, tableY + 16, mRight, tableY + 16);
-  doc.text('Authorized Signatory Stamp & Date', mLeft + sigW + 20, tableY + 20);
+  doc.text('Company Seal authorized signee', mLeft + sigW + 20, tableY + 20);
 
   // Trigger Save/Download
   doc.save(`Quotation_${quotation.refNo}.pdf`);
 };
 
-export const downloadInvoicePDF = (invoice: Invoice, client: Client | undefined) => {
+export const downloadInvoicePDF = async (invoice: Invoice, client: Client | undefined, runningBalance?: number) => {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4'
   });
+
+  await ensureFontsLoaded();
+  setupDocFontsAndOverride(doc);
 
   // Margins & Dimensions
   const mLeft = 15;
@@ -465,7 +554,7 @@ export const downloadInvoicePDF = (invoice: Invoice, client: Client | undefined)
   let rightY = 30;
   doc.text(`Invoice No: ${invoice.id}`, mRight, rightY, { align: 'right' });
   rightY += 5;
-  doc.text(`Date Issued: ${invoice.date}`, mRight, rightY, { align: 'right' });
+  doc.text(`Date: ${invoice.date}`, mRight, rightY, { align: 'right' });
   rightY += 5;
   doc.text(`Due Date: ${invoice.dueDate}`, mRight, rightY, { align: 'right' });
   rightY += 5;
@@ -529,12 +618,21 @@ export const downloadInvoicePDF = (invoice: Invoice, client: Client | undefined)
   doc.setTextColor(15, 23, 42);
   doc.text(client?.accountManager || 'N/A', mLeft + colW + 48, boxY + 16);
 
-  doc.setFont('Helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  doc.text(`Invoice Status:`, mLeft + colW + 12, boxY + 21);
-  doc.setFont('Helvetica', 'bold');
-  doc.setTextColor(invoice.status === 'paid' ? 16 : 225, invoice.status === 'paid' ? 185 : 29, invoice.status === 'paid' ? 129 : 72); // green / red
-  doc.text(invoice.status.toUpperCase(), mLeft + colW + 48, boxY + 21);
+  if (runningBalance !== undefined) {
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Running CRM Balance:`, mLeft + colW + 12, boxY + 21);
+    doc.setFont('Helvetica', 'bold');
+    doc.setTextColor(158, 0, 44); // brand-700
+    doc.text(formatRM(runningBalance), mLeft + colW + 48, boxY + 21);
+  } else {
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Invoice Status:`, mLeft + colW + 12, boxY + 21);
+    doc.setFont('Helvetica', 'bold');
+    doc.setTextColor(invoice.status === 'paid' ? 16 : 225, invoice.status === 'paid' ? 185 : 29, invoice.status === 'paid' ? 129 : 72); // green / red
+    doc.text(invoice.status.toUpperCase(), mLeft + colW + 48, boxY + 21);
+  }
 
   // --- INVOICE ITEMS TABLE ---
   let tableY = 100;
@@ -550,12 +648,11 @@ export const downloadInvoicePDF = (invoice: Invoice, client: Client | undefined)
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(15, 23, 42);
-  doc.text('No.', mLeft + 2, tableY + 4.8);
-  doc.text('Specification Service Rendered', mLeft + 12, tableY + 4.8);
+  doc.text('Specification Service Rendered', mLeft + 2, tableY + 4.8);
   doc.text('Qty', mLeft + 114, tableY + 4.8, { align: 'center' });
-  doc.text('Unit Price', mLeft + 140, tableY + 4.8, { align: 'right' });
+  doc.text('Unit Price (RM)', mLeft + 140, tableY + 4.8, { align: 'right' });
   doc.text('Tax (SST)', mLeft + 162, tableY + 4.8, { align: 'right' });
-  doc.text('Total Amount', mRight - 2, tableY + 4.8, { align: 'right' });
+  doc.text('Total Amount (RM)', mRight - 2, tableY + 4.8, { align: 'right' });
 
   // Draw Lines
   tableY += 7;
@@ -574,23 +671,20 @@ export const downloadInvoicePDF = (invoice: Invoice, client: Client | undefined)
       doc.setFont('Helvetica', 'bold');
       doc.setFontSize(8);
       doc.setTextColor(15, 23, 42);
-      doc.text('No.', mLeft + 2, tableY + 4.8);
-      doc.text('Specification Service Rendered', mLeft + 12, tableY + 4.8);
+      doc.text('Specification Service Rendered', mLeft + 2, tableY + 4.8);
       doc.text('Qty', mLeft + 114, tableY + 4.8, { align: 'center' });
-      doc.text('Unit Price', mLeft + 140, tableY + 4.8, { align: 'right' });
+      doc.text('Unit Price (RM)', mLeft + 140, tableY + 4.8, { align: 'right' });
       doc.text('Tax (SST)', mLeft + 162, tableY + 4.8, { align: 'right' });
-      doc.text('Total Amount', mRight - 2, tableY + 4.8, { align: 'right' });
+      doc.text('Total Amount (RM)', mRight - 2, tableY + 4.8, { align: 'right' });
       tableY += 7;
       doc.setFont('Helvetica', 'normal');
       doc.setFontSize(8.5);
       doc.setTextColor(51, 65, 85);
     }
 
-    const itemNum = String(index + 1);
-    const descLines = doc.splitTextToSize(item.description, 95);
+    const descLines = doc.splitTextToSize(item.description, 105);
 
-    doc.text(itemNum, mLeft + 2, tableY + 5);
-    doc.text(descLines, mLeft + 12, tableY + 5);
+    doc.text(descLines, mLeft + 2, tableY + 5);
     doc.text(String(item.qty), mLeft + 114, tableY + 5, { align: 'center' });
     doc.text(formatRM(item.unitPrice), mLeft + 140, tableY + 5, { align: 'right' });
     doc.text(item.taxable ? '8%' : 'Exempt', mLeft + 162, tableY + 5, { align: 'right' });
@@ -650,14 +744,15 @@ export const downloadInvoicePDF = (invoice: Invoice, client: Client | undefined)
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(16, 185, 129); // emerald-500
-    doc.text('PAYMENTS LOGS RECEIVED:', totalsX, tableY);
+    doc.text('Payments Logs', totalsX, tableY);
     
     invoice.payments.forEach(p => {
       tableY += 4;
       doc.setFont('Helvetica', 'normal');
       doc.setFontSize(7);
       doc.setTextColor(100, 116, 139);
-      doc.text(`${p.date} - ${p.method}`, totalsX, tableY);
+      const refText = p.reference ? ` (${p.reference})` : '';
+      doc.text(`${p.date} - ${p.method}${refText}`, totalsX, tableY);
       doc.setFont('Helvetica', 'bold');
       doc.text(`-${formatRM(p.amount)}`, mRight - 2, tableY, { align: 'right' });
     });
@@ -709,8 +804,8 @@ export const downloadInvoicePDF = (invoice: Invoice, client: Client | undefined)
   doc.setTextColor(100, 116, 139);
   doc.text([
     'Company SST Reg Number: W10-1808-32000041',
-    'All billing disputes must be logged with corporate finance',
-    'accounts within 7 working days from tax invoice issuance date.',
+    'All disputes regarding billing specification must be logged with corporate',
+    'finance accounts within 7 working days from tax invoice issuance date.',
     '',
     'Thank you for your business!'
   ], mLeft + colW2 + 10, tableY + 4.5);

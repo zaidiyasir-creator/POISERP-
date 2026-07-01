@@ -34,6 +34,7 @@ export const InvoicesModule: React.FC = () => {
   const [emailBody, setEmailBody] = useState('');
   const [emailSuccess, setEmailSuccess] = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [archiveNextcloud, setArchiveNextcloud] = useState(true);
 
   // --- DUITNOW RECEIPT UPLOAD STATES ---
@@ -333,15 +334,23 @@ export const InvoicesModule: React.FC = () => {
                   </button>
 
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (selectedInvoice) {
-                        downloadInvoicePDF(selectedInvoice, clientOfSelected);
+                        setDownloadingPdf(true);
+                        try {
+                          await downloadInvoicePDF(selectedInvoice, clientOfSelected, outstandingClientBalance);
+                        } finally {
+                          setDownloadingPdf(false);
+                        }
                       }
                     }}
-                    className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 text-brand-700 font-bold text-xs px-3 py-1.5 rounded-lg transition-all"
+                    disabled={downloadingPdf}
+                    className={`flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 text-brand-700 font-bold text-xs px-3 py-1.5 rounded-lg transition-all ${
+                      downloadingPdf ? 'opacity-70 cursor-not-allowed' : ''
+                    }`}
                   >
-                    <Download className="w-4 h-4 text-brand-600" />
-                    <span>Download PDF</span>
+                    <Download className={`w-4 h-4 text-brand-600 ${downloadingPdf ? 'animate-bounce' : ''}`} />
+                    <span>{downloadingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
                   </button>
 
                   {/* HOD Sales Approval */}

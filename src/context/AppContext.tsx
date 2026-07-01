@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
-  User, UserRole, CatalogItem, Client, Quotation, Job, Invoice, Project, Payment, Technician, ProjectStep, InvoiceStatus, InvoiceLineItem
+  User, UserRole, CatalogItem, Client, Quotation, Job, Invoice, Project, Payment, Technician, ProjectStep, InvoiceStatus, InvoiceLineItem, SlaSettings, TroubleTicket, TicketPriority, TicketStatus
 } from '../types';
 import { 
   getStoredData, setStoredData, initializeAppState, seedUsers, seedTechnicians, seedProjects 
@@ -33,7 +33,7 @@ interface AppContextType {
   
   // Workflows
   addClient: (client: Client) => void;
-  updateClient: (client: Client) => void;
+  updateClient: (client: Client, oldId?: string) => void;
   addCatalogItem: (item: CatalogItem) => void;
   updateCatalogItem: (item: CatalogItem) => void;
   deleteCatalogItem: (code: string) => void;
@@ -70,6 +70,14 @@ interface AppContextType {
   setActiveTab: (tab: string) => void;
   triggerClientCreate: boolean;
   setTriggerClientCreate: (val: boolean) => void;
+  slaSettings: SlaSettings;
+  setSlaSettings: React.Dispatch<React.SetStateAction<SlaSettings>>;
+  troubleTickets: TroubleTicket[];
+  setTroubleTickets: React.Dispatch<React.SetStateAction<TroubleTicket[]>>;
+  addTroubleTicket: (ticket: TroubleTicket) => void;
+  updateTroubleTicket: (ticket: TroubleTicket) => void;
+  deleteTroubleTicket: (ticketId: string) => void;
+  applyRebateToInvoice: (ticketId: string, invoiceId: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -129,6 +137,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       'global:jobs': true,
       'global:projects': true,
       'global:selftests': true,
+      'global:tickets': true,
       'global:settings': true,
     })
   );
@@ -157,8 +166,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     })
   );
 
+  const [slaSettings, setSlaSettings] = useState<SlaSettings>(() => 
+    getStoredData('pois_slaSettings', {
+      targetUptime: 99.9,
+      deliverySlaDays: 21,
+      cablingAdjustmentRate: 20.00,
+      outageRebatePercent: 5.0,
+      resolutionSlaHours: 4,
+      latencySlaMs: 15,
+      packetLossSlaPercent: 0.1
+    })
+  );
+
+  const [troubleTickets, setTroubleTickets] = useState<TroubleTicket[]>(() =>
+    getStoredData('pois_troubleTickets', [
+      {
+        id: 'TKT-1082',
+        clientId: 'C-001',
+        title: 'Core Fiber Link Splicing Failure at NOC',
+        description: 'Total loss of signal since 03:00 AM. Ground technicians dispatched for OTDR testing.',
+        status: 'open',
+        priority: 'critical',
+        createdAt: '2026-07-01 03:15:00',
+        isOutage: true,
+        outageDurationHours: 6.5,
+        slaBreached: true,
+        rebateAmount: 487.50, // Calculated as: 6.5 hours * 5.0% * RM1500 MRC
+        assignedTechnicianId: 'TECH-01'
+      },
+      {
+        id: 'TKT-1083',
+        clientId: 'C-003',
+        title: 'High Packet Loss & Latency Spikes during peak hours',
+        description: 'Ping responses exceeding 150ms to gateway. SLA limit is 15ms. Need NOC analysis.',
+        status: 'investigating',
+        priority: 'high',
+        createdAt: '2026-06-29 18:22:00',
+        isOutage: false,
+        slaBreached: true,
+        assignedTechnicianId: 'TECH-02'
+      },
+      {
+        id: 'TKT-1084',
+        clientId: 'C-001',
+        title: 'Unscheduled Node Maintenance Downtime',
+        description: 'Scheduled card replacement took 5.5 hours instead of 2. Resolved successfully.',
+        status: 'resolved',
+        priority: 'high',
+        createdAt: '2026-06-28 01:00:00',
+        resolvedAt: '2026-06-28 06:30:00',
+        isOutage: true,
+        outageDurationHours: 5.5,
+        slaBreached: true,
+        rebateAmount: 412.50, // Calculated as: 5.5 hours * 5.0% * RM1500 MRC
+        assignedTechnicianId: 'TECH-01'
+      }
+    ])
+  );
+
   // Sync to localStorage
   useEffect(() => { setStoredData('pois_nextcloudConfig', nextcloudConfig); }, [nextcloudConfig]);
+  useEffect(() => { setStoredData('pois_slaSettings', slaSettings); }, [slaSettings]);
+  useEffect(() => { setStoredData('pois_troubleTickets', troubleTickets); }, [troubleTickets]);
   useEffect(() => { setStoredData('pois_currentUser', currentUser); }, [currentUser]);
   useEffect(() => { setStoredData('pois_isLoggedOut', isLoggedOut); }, [isLoggedOut]);
   useEffect(() => { setStoredData('pois_catalog', catalog); }, [catalog]);
@@ -197,8 +266,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setClients(prev => [...prev, client]);
   };
 
-  const updateClient = (updatedClient: Client) => {
-    setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+  const updateClient = (updatedClient: Client, oldId?: string) => {
+    const targetId = oldId || updatedClient.id;
+    setClients(prev => prev.map(c => c.id === targetId ? updatedClient : c));
+    
+    if (oldId && oldId !== updatedClient.id) {
+      // Propagate client ID updates to other collections
+      setQuotations(prev => prev.map(q => q.clientId === oldId ? { ...q, clientId: updatedClient.id } : q));
+      setInvoices(prev => prev.map(inv => inv.clientId === oldId ? { ...inv, clientId: updatedClient.id } : inv));
+      setProjects(prev => prev.map(p => p.clientId === oldId ? { ...p, clientId: updatedClient.id } : p));
+    }
   };
 
   // Catalog CRUD
@@ -245,9 +322,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           stage: 'survey',
           progress: 10,
           isRenewalRisk: false,
-          targetDeliveryDate: new Date(new Date().getTime() + 20 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          targetDeliveryDate: new Date(new Date().getTime() + (slaSettings.deliverySlaDays || 20) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           daysElapsed: 1,
-          slaLimitDays: 20,
+          slaLimitDays: slaSettings.deliverySlaDays || 20,
           cycleTimes: { survey: 1 }
         };
         setProjects(p => [...p, newProject]);
@@ -297,9 +374,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const jobId = 'JOB-' + Math.floor(1000 + Math.random() * 9000);
     const client = clients.find(c => c.id === targetQuote?.clientId);
     
-    // SLA is 14 to 30 working days from PO. Let's calculate a standard 21 days due date
+    // SLA target is configured dynamically in settings
     const today = new Date();
-    const dueDate = new Date(today.setDate(today.getDate() + 21)).toISOString().split('T')[0];
+    const dueDate = new Date(today.setDate(today.getDate() + (slaSettings.deliverySlaDays || 21))).toISOString().split('T')[0];
 
     const newJob: Job = {
       id: jobId,
@@ -493,9 +570,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       stage: 'survey' as const,
       progress: 20,
       isRenewalRisk: false,
-      targetDeliveryDate: new Date(new Date().getTime() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      targetDeliveryDate: new Date(new Date().getTime() + (slaSettings.deliverySlaDays || 15) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       daysElapsed: 1,
-      slaLimitDays: 15,
+      slaLimitDays: slaSettings.deliverySlaDays || 15,
       cycleTimes: { survey: 1 }
     };
 
@@ -605,7 +682,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (actualMeters > originalMeters) {
           const extraMeters = actualMeters - originalMeters;
-          const cablingPrice = 20.00;
+          const cablingPrice = slaSettings.cablingAdjustmentRate || 20.00;
           const amount = extraMeters * cablingPrice;
           const sst = amount * DEFAULT_SST_RATE;
 
@@ -618,7 +695,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             dueDate: new Date(new Date().setDate(new Date().getDate() + 14)).toISOString().split('T')[0],
             items: [{
               id: 'ILI-' + Math.floor(10000 + Math.random() * 90000),
-              description: `Splicing reconciliation: Excess physical fiber drop-cable installed (${extraMeters}m @ RM20.00/m)`,
+              description: `Splicing reconciliation: Excess physical fiber drop-cable installed (${extraMeters}m @ RM${cablingPrice.toFixed(2)}/m)`,
               qty: extraMeters,
               unitPrice: cablingPrice,
               taxable: true,
@@ -766,6 +843,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { count, totalValue };
   };
 
+  const addTroubleTicket = (ticket: TroubleTicket) => {
+    setTroubleTickets(prev => [...prev, ticket]);
+  };
+
+  const updateTroubleTicket = (ticket: TroubleTicket) => {
+    setTroubleTickets(prev => prev.map(t => t.id === ticket.id ? ticket : t));
+  };
+
+  const deleteTroubleTicket = (ticketId: string) => {
+    setTroubleTickets(prev => prev.filter(t => t.id !== ticketId));
+  };
+
+  const applyRebateToInvoice = (ticketId: string, invoiceId: string) => {
+    // 1. Find the actual ticket to get rebate info
+    const ticket = troubleTickets.find(t => t.id === ticketId);
+    if (!ticket || !ticket.rebateAmount) return;
+
+    // 2. Find and update the ticket to link it to the invoice
+    setTroubleTickets(prev => prev.map(t => {
+      if (t.id === ticketId) {
+        return { ...t, appliedToInvoiceId: invoiceId, status: 'closed' };
+      }
+      return t;
+    }));
+
+    // 3. Add the rebate as a line item to the selected invoice
+    setInvoices(prev => prev.map(inv => {
+      if (inv.id === invoiceId) {
+        const lineItemAmount = -Number(ticket.rebateAmount!.toFixed(2));
+        const newItem: InvoiceLineItem = {
+          id: 'ILI-' + Math.floor(10000 + Math.random() * 90000),
+          description: `SLA Service Outage Rebate Adjustment — Ref: ${ticket.id}`,
+          qty: 1,
+          unitPrice: lineItemAmount,
+          taxable: false,
+          sstAmount: 0,
+          totalAmount: lineItemAmount
+        };
+
+        const updatedItems = [...inv.items, newItem];
+        const subtotal = updatedItems.reduce((acc, item) => acc + (item.qty * item.unitPrice), 0);
+        const sstTotal = updatedItems.reduce((acc, item) => acc + (item.sstAmount || 0), 0);
+        const grandTotal = Number((subtotal + sstTotal).toFixed(2));
+
+        return {
+          ...inv,
+          items: updatedItems,
+          subtotal: Number(subtotal.toFixed(2)),
+          sstTotal: Number(sstTotal.toFixed(2)),
+          grandTotal: grandTotal < 0 ? 0 : grandTotal
+        };
+      }
+      return inv;
+    }));
+  };
+
   return (
     <AppContext.Provider value={{
       currentUser,
@@ -818,7 +951,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       activeTab,
       setActiveTab,
       triggerClientCreate,
-      setTriggerClientCreate
+      setTriggerClientCreate,
+      slaSettings,
+      setSlaSettings,
+      troubleTickets,
+      setTroubleTickets,
+      addTroubleTicket,
+      updateTroubleTicket,
+      deleteTroubleTicket,
+      applyRebateToInvoice
     }}>
       {children}
     </AppContext.Provider>

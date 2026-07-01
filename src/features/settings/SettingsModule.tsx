@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { User, UserRole, CatalogItem, CatalogCategory } from '../../types';
+import { User, UserRole, CatalogItem, CatalogCategory, SlaSettings } from '../../types';
 import { 
   UserPlus, Shield, Eye, EyeOff, Trash2, Edit3, Check, Lock, 
-  Plus, Search, Edit2, X, Settings, DollarSign, Percent, RefreshCw, Layers, Cloud
+  Plus, Search, Edit2, X, Settings, DollarSign, Percent, RefreshCw, Layers, Cloud,
+  Activity, Sliders
 } from 'lucide-react';
 
 export const SettingsModule: React.FC = () => {
@@ -18,10 +19,12 @@ export const SettingsModule: React.FC = () => {
     setCatalog,
     updateCatalogItem,
     nextcloudConfig,
-    setNextcloudConfig
+    setNextcloudConfig,
+    slaSettings,
+    setSlaSettings
   } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState<'users' | 'menus' | 'pricing' | 'security' | 'nextcloud'>('users');
+  const [activeSubTab, setActiveSubTab] = useState<'users' | 'menus' | 'pricing' | 'security' | 'nextcloud' | 'sla'>('users');
 
   // --- PASSWORD & SECURITY STATES ---
   const [currentPassword, setCurrentPassword] = useState('');
@@ -55,6 +58,61 @@ export const SettingsModule: React.FC = () => {
   // --- MENU CONFIG STATES ---
   const [menuSuccess, setMenuSuccess] = useState('');
 
+  // --- SLA AGREEMENT & ADJUSTMENT STATES ---
+  const [targetUptime, setTargetUptime] = useState(slaSettings.targetUptime);
+  const [deliverySlaDays, setDeliverySlaDays] = useState(slaSettings.deliverySlaDays);
+  const [cablingAdjustmentRate, setCablingAdjustmentRate] = useState(slaSettings.cablingAdjustmentRate);
+  const [outageRebatePercent, setOutageRebatePercent] = useState(slaSettings.outageRebatePercent);
+  const [resolutionSlaHours, setResolutionSlaHours] = useState(slaSettings.resolutionSlaHours);
+  const [latencySlaMs, setLatencySlaMs] = useState(slaSettings.latencySlaMs);
+  const [packetLossSlaPercent, setPacketLossSlaPercent] = useState(slaSettings.packetLossSlaPercent);
+  const [slaSuccess, setSlaSuccess] = useState('');
+  const [slaError, setSlaError] = useState('');
+
+  const handleSaveSlaSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSlaError('');
+    setSlaSuccess('');
+
+    if (currentUser.role !== 'admin' && currentUser.role !== 'ceo') {
+      setSlaError('Only administrators or CEOs have permission to modify master SLA agreement parameters.');
+      return;
+    }
+
+    if (targetUptime < 90 || targetUptime > 100) {
+      setSlaError('Target Uptime must be between 90% and 100%.');
+      return;
+    }
+
+    if (deliverySlaDays < 1 || deliverySlaDays > 90) {
+      setSlaError('Delivery SLA days must be between 1 and 90 days.');
+      return;
+    }
+
+    if (cablingAdjustmentRate < 0) {
+      setSlaError('Cabling adjustment rate cannot be negative.');
+      return;
+    }
+
+    if (outageRebatePercent < 0 || outageRebatePercent > 100) {
+      setSlaError('Outage rebate percentage must be between 0% and 100%.');
+      return;
+    }
+
+    setSlaSettings({
+      targetUptime,
+      deliverySlaDays,
+      cablingAdjustmentRate,
+      outageRebatePercent,
+      resolutionSlaHours,
+      latencySlaMs,
+      packetLossSlaPercent
+    });
+
+    setSlaSuccess('Master SLA agreement rates and billing adjustment settings saved successfully!');
+    setTimeout(() => setSlaSuccess(''), 4000);
+  };
+
   // --- PRICING & RATES STATES ---
   const [pricingSearch, setPricingSearch] = useState('');
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
@@ -73,6 +131,7 @@ export const SettingsModule: React.FC = () => {
     { id: 'jobs', label: 'Job Scheduling' },
     { id: 'projects', label: 'Project Timelines' },
     { id: 'selftests', label: 'Pricing Self-Tests' },
+    { id: 'tickets', label: 'Trouble Tickets' },
     { id: 'settings', label: 'System Settings' }
   ];
 
@@ -381,6 +440,17 @@ export const SettingsModule: React.FC = () => {
         >
           <Cloud className="w-4 h-4" />
           <span>Nextcloud Integration</span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab('sla')}
+          className={`py-3.5 px-6 font-semibold text-xs border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+            activeSubTab === 'sla'
+              ? 'border-brand-600 text-brand-600 bg-brand-50/10'
+              : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
+          }`}
+        >
+          <Sliders className="w-4 h-4" />
+          <span>SLA & Agreement Settings</span>
         </button>
       </div>
 
@@ -1120,6 +1190,230 @@ export const SettingsModule: React.FC = () => {
               <div className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-lg text-[10px] leading-relaxed text-slate-400">
                 <p className="font-semibold text-slate-300 mb-1">💡 Automated Sync Protocol:</p>
                 <p>When saving Quotations, Invoices, and DuitNow Payment Receipts, PDF snapshots are automatically routed and saved securely in your Nextcloud instance folders via standard WebDAV file transfer protocols.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. SLA & AGREEMENT SETTINGS SUBTAB */}
+      {activeSubTab === 'sla' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-sans">
+          {/* Main settings form */}
+          <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-6 shadow-xs space-y-4">
+            <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2 pb-4 border-b border-gray-100 animate-fade-in">
+              <Sliders className="w-4 h-4 text-brand-600" />
+              <span>Configure Corporate Master SLA Agreement Rates</span>
+            </h3>
+
+            <form onSubmit={handleSaveSlaSettings} className="space-y-4 animate-fade-in">
+              {slaError && (
+                <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs rounded-lg font-medium">
+                  {slaError}
+                </div>
+              )}
+              {slaSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs rounded-lg font-medium">
+                  {slaSuccess}
+                </div>
+              )}
+
+              {/* SECTION A: AGREEMENT RATES (TARGET UPTIME / PERFORMANCE) */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold text-brand-600 uppercase tracking-wider">
+                  Section A: Performance & Reliability Guarantees (SLA Rate)
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1.5">Target Symmetrical Uptime Guarantee (%)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="90"
+                        max="100"
+                        value={targetUptime}
+                        onChange={(e) => setTargetUptime(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-600 text-gray-800 font-mono font-bold"
+                        required
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs text-gray-400 font-bold">%</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1">Guaranteed annual network availability (e.g. 99.9% / "Three Nines").</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1.5">Standard Provisioning Delivery SLA (Days)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        max="90"
+                        value={deliverySlaDays}
+                        onChange={(e) => setDeliverySlaDays(parseInt(e.target.value) || 0)}
+                        className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-600 text-gray-800 font-mono font-bold"
+                        required
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs text-gray-400 font-bold">Days</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1">Maximum working days allowed for physical drop-cable splicing before SLA breach.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1.5">Maximum Backbone Latency (ms)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        max="200"
+                        value={latencySlaMs}
+                        onChange={(e) => setLatencySlaMs(parseInt(e.target.value) || 0)}
+                        className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-600 text-gray-800 font-mono font-semibold"
+                        required
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs text-gray-400">ms</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1.5">Guaranteed Max Packet Loss (%)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="10"
+                        value={packetLossSlaPercent}
+                        onChange={(e) => setPacketLossSlaPercent(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-600 text-gray-800 font-mono font-semibold"
+                        required
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs text-gray-400">%</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1.5">Critical Ticket Resolution (Hours)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        max="24"
+                        value={resolutionSlaHours}
+                        onChange={(e) => setResolutionSlaHours(parseInt(e.target.value) || 0)}
+                        className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-600 text-gray-800 font-mono font-semibold"
+                        required
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs text-gray-400">Hrs</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION B: BILLING ADJUSTMENTS */}
+              <div className="space-y-4 pt-4 border-t border-gray-150">
+                <h4 className="text-xs font-bold text-brand-600 uppercase tracking-wider">
+                  Section B: Financial Penalties & Adjustments Settings
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1.5">Cabling Over-distance Adjustment Rate (RM/m)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs text-gray-400 font-bold">RM</span>
+                      <input
+                        type="number"
+                        step="0.10"
+                        min="0"
+                        value={cablingAdjustmentRate}
+                        onChange={(e) => setCablingAdjustmentRate(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-white border border-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-600 text-gray-800 font-mono font-bold"
+                        required
+                      />
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1">Reconciliation fee billed on excess fiber drop cabling installed beyond quoted quantities.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1.5">Outage Billing Rebate Factor (% MRC / Hour)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        value={outageRebatePercent}
+                        onChange={(e) => setOutageRebatePercent(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-600 text-gray-800 font-mono font-bold"
+                        required
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs text-gray-400 font-bold">%</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1">Percentage rebate of Monthly Recurring Charge (MRC) per hour of breached downtime resolution.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* SAVE BUTTON */}
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="submit"
+                  disabled={currentUser.role !== 'admin' && currentUser.role !== 'ceo'}
+                  className="bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs py-2.5 px-5 rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Update SLA Policy</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Right Status Panel */}
+          <div className="md:col-span-1 bg-slate-900 border border-slate-800 text-slate-200 rounded-xl p-5 space-y-5 shadow-sm animate-fade-in">
+            <h4 className="text-xs font-bold text-brand-400 uppercase tracking-widest flex items-center gap-2 pb-3 border-b border-slate-800">
+              <Activity className="w-4 h-4 text-brand-400" />
+              <span>SLA Regulatory Compliance</span>
+            </h4>
+
+            <div className="space-y-4 text-xs">
+              <div className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-lg space-y-1">
+                <p className="font-bold text-slate-300">Malaysia MCMC Standards</p>
+                <p className="text-[10px] leading-relaxed text-slate-400">
+                  These SLA and adjustment settings comply with standard commercial lease contracts for High-Speed Broadband (HSBB) and Metro Ethernet services regulated by the Malaysian Communications and Multimedia Commission.
+                </p>
+              </div>
+
+              <div className="space-y-2 pt-2 border-t border-slate-800">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Live Adjustment Enforcements</span>
+                
+                <div className="space-y-2.5 text-[11px] font-medium font-mono">
+                  <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
+                    <span className="text-slate-400">Cabling Excess Rate:</span>
+                    <span className="text-brand-300 font-bold">RM {cablingAdjustmentRate.toFixed(2)}/meter</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
+                    <span className="text-slate-400">Uptime Target:</span>
+                    <span className="text-brand-300 font-bold">{targetUptime.toFixed(2)}%</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
+                    <span className="text-slate-400">Provisioning Window:</span>
+                    <span className="text-brand-300 font-bold">{deliverySlaDays} Working Days</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
+                    <span className="text-slate-400">Outage Comp rebate:</span>
+                    <span className="text-brand-300 font-bold">{outageRebatePercent.toFixed(1)}% MRC/hr</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-brand-950/40 border border-brand-900/30 rounded-xl text-[10.5px] leading-relaxed text-slate-300">
+                <p className="font-bold text-brand-300 mb-1">ℹ️ Compensation Rule:</p>
+                <p>
+                  Any project scheduled with an installation work order or fiber drop activation will enforce a maximum delivery limit of **{deliverySlaDays} working days**. If breached, simulated clients are contractually entitled to rebates determined by the configured hourly adjustment settings.
+                </p>
               </div>
             </div>
           </div>

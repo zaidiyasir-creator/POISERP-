@@ -10,6 +10,7 @@ import { InvoicesModule } from './features/invoices/InvoicesModule';
 import { JobsModule } from './features/jobs/JobsModule';
 import { ProjectsModule } from './features/projects/ProjectsModule';
 import { SelfTestsModule } from './features/selftests/SelfTestsModule';
+import { TicketsModule } from './features/tickets/TicketsModule';
 import { SettingsModule } from './features/settings/SettingsModule';
 
 function AppContent() {
@@ -37,6 +38,8 @@ function AppContent() {
         return <ProjectsModule />;
       case 'selftests':
         return <SelfTestsModule />;
+      case 'tickets':
+        return <TicketsModule />;
       case 'settings':
         return <SettingsModule />;
       default:

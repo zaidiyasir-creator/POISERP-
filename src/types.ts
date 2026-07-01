@@ -225,3 +225,35 @@ export interface Project {
     billing_active?: number;
   };
 }
+
+export interface SlaSettings {
+  targetUptime: number; // e.g. 99.9%
+  deliverySlaDays: number; // e.g. 21 working days
+  cablingAdjustmentRate: number; // e.g. RM 20.00 per meter
+  outageRebatePercent: number; // e.g. 5% rebate of monthly recurring charge per hour/breach
+  resolutionSlaHours: number; // e.g. 4 hours target resolution
+  latencySlaMs: number; // e.g. 15ms target latency
+  packetLossSlaPercent: number; // e.g. 0.1% target max packet loss
+}
+
+export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
+export type TicketStatus = 'open' | 'investigating' | 'resolved' | 'closed';
+
+export interface TroubleTicket {
+  id: string;
+  clientId: string;
+  title: string;
+  description: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  createdAt: string;
+  resolvedAt?: string;
+  isOutage: boolean;
+  outageDurationHours?: number;
+  slaBreached: boolean;
+  rebateAmount?: number;
+  appliedToInvoiceId?: string;
+  assignedTechnicianId?: string;
+}
+
+
