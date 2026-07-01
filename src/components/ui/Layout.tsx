@@ -32,6 +32,20 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
   // Sidebar collapsed state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
+  // Auto-collapse sidebar on mobile screens
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsSidebarCollapsed(true);
+      } else {
+        setIsSidebarCollapsed(false);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Find overdue jobs or projects at SLA risk (delivery time exceeding 14-30 working days)
   const slaRiskProjects = projects.filter(p => p.atSlaRisk).length;
   const pendingJobs = jobs.filter(j => j.status !== 'closed' && j.status !== 'activated').length;
@@ -120,9 +134,20 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-50/50 font-sans">
+    <div className="min-h-screen flex bg-gray-50/50 font-sans relative overflow-x-hidden">
+      {/* Sidebar Backdrop for Mobile */}
+      {!isSidebarCollapsed && (
+        <button 
+          onClick={() => setIsSidebarCollapsed(true)} 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity border-none outline-none cursor-pointer w-full h-full text-left"
+          aria-label="Close sidebar"
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className={`bg-slate-900 text-slate-100 flex flex-col border-r border-slate-800 shrink-0 transition-all duration-300 overflow-hidden ${isSidebarCollapsed ? 'w-0 border-r-0' : 'w-64'}`}>
+      <aside className={`bg-slate-900 text-slate-100 flex flex-col border-r border-slate-800 shrink-0 transition-all duration-300 overflow-hidden 
+        ${isSidebarCollapsed ? 'w-0 border-r-0' : 'w-64'} 
+        lg:relative fixed inset-y-0 left-0 z-50 h-full`}>
         <div className="w-64 flex flex-col h-full shrink-0">
           <div className="p-6 border-b border-slate-800 flex items-center gap-3">
             {/* Branded Logo */}
@@ -141,7 +166,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    if (window.innerWidth < 1024) {
+                      setIsSidebarCollapsed(true);
+                    }
+                  }}
                   className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                     isActive 
                       ? 'bg-brand-600 text-white shadow-sm' 
@@ -170,33 +200,33 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
       {/* Main Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-gray-100 px-8 flex items-center justify-between shadow-xs shrink-0">
+        <header className="h-16 bg-white border-b border-gray-100 px-4 sm:px-8 flex items-center justify-between shadow-xs shrink-0">
           <div className="flex items-center gap-3">
             {/* Sidebar Toggle Button (Red Grid Icon Style) */}
             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="p-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white transition-all shadow-xs flex items-center justify-center cursor-pointer mr-2 shrink-0"
+              className="p-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white transition-all shadow-xs flex items-center justify-center cursor-pointer mr-1 shrink-0"
               title={isSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
             >
               <LayoutGrid className="w-5 h-5" />
             </button>
-            <h2 className="text-base font-semibold text-gray-800 capitalize">
+            <h2 className="text-sm sm:text-base font-semibold text-gray-800 capitalize truncate">
               {navigationItems.find(n => n.id === activeTab)?.label}
             </h2>
             {slaRiskProjects > 0 && (
-              <div className="flex items-center gap-1.5 bg-rose-50 text-rose-700 text-xs font-medium px-2.5 py-1 rounded-full border border-rose-100 animate-pulse">
+              <div className="hidden md:flex items-center gap-1.5 bg-rose-50 text-rose-700 text-xs font-medium px-2.5 py-1 rounded-full border border-rose-100 animate-pulse">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span>{slaRiskProjects} SLA delivery risk alert(s)</span>
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="text-right">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <div className="text-right hidden sm:block">
               <p className="text-sm font-semibold text-gray-700">{currentUser.name}</p>
               <p className="text-xs text-gray-400 capitalize">{currentUser.role.replace('_', ' ')}</p>
             </div>
-            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-gray-700 border border-gray-200">
+            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-gray-700 border border-gray-200 shrink-0">
               {currentUser.name.split(' ').map(n => n[0]).join('')}
             </div>
             
