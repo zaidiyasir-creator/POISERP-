@@ -4,7 +4,7 @@ import { User, UserRole } from '../../types';
 import { 
   LayoutDashboard, Users, BookOpen, FileText, Receipt, 
   Wrench, Activity, ShieldCheck, RefreshCw, AlertTriangle, Settings, LogOut,
-  KeyRound, Eye, EyeOff, Lock, X, AlertCircle, LayoutGrid
+  KeyRound, Eye, EyeOff, Lock, X, AlertCircle, LayoutGrid, Sun, Moon
 } from 'lucide-react';
 import { PoisLogo } from './PoisLogo';
 
@@ -31,6 +31,21 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
   
   // Sidebar collapsed state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Theme state: dark or light
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('pois_theme') as 'light' | 'dark') || 'light';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('pois_theme', theme);
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }, [theme]);
 
   // Auto-collapse sidebar on mobile screens
   useEffect(() => {
@@ -147,8 +162,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
       {/* Sidebar */}
       <aside className={`bg-slate-900 text-slate-100 flex flex-col border-r border-slate-800 shrink-0 transition-all duration-300 overflow-hidden 
         ${isSidebarCollapsed ? 'w-0 border-r-0' : 'w-64'} 
-        lg:relative fixed inset-y-0 left-0 z-50 h-full`}>
-        <div className="w-64 flex flex-col h-full shrink-0">
+        lg:relative fixed inset-y-0 left-0 z-50 h-full lg:h-auto`}>
+        <div className="w-64 flex flex-col h-full lg:h-auto lg:flex-1 shrink-0">
           <div className="p-6 border-b border-slate-800 flex items-center gap-3">
             {/* Branded Logo */}
             <PoisLogo className="w-8 h-8" />
@@ -205,11 +220,20 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
             {/* Sidebar Toggle Button (Red Grid Icon Style) */}
             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="p-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white transition-all shadow-xs flex items-center justify-center cursor-pointer mr-1 shrink-0"
+              className="p-2 rounded-lg bg-brand-700 hover:bg-brand-800 text-white transition-all shadow-xs flex items-center justify-center cursor-pointer mr-1 shrink-0"
               title={isSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
             >
               <LayoutGrid className="w-5 h-5" />
             </button>
+
+            {/* Co Logo displayed when sidebar is collapsed */}
+            {isSidebarCollapsed && (
+              <div className="flex items-center gap-2 mr-1 transition-all animate-fade-in shrink-0">
+                <PoisLogo className="w-6 h-6" />
+                <span className="text-xs font-black tracking-wider text-brand-600 hidden xs:inline-block">POIS ERP</span>
+              </div>
+            )}
+
             <h2 className="text-sm sm:text-base font-semibold text-gray-800 capitalize truncate">
               {navigationItems.find(n => n.id === activeTab)?.label}
             </h2>
@@ -231,6 +255,19 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
             </div>
             
             <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
+              {/* Dark/Light Theme Switcher */}
+              <button
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className={`p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer shrink-0 border ${
+                  theme === 'dark' 
+                    ? 'bg-slate-800 text-amber-400 hover:bg-slate-700 border-slate-700' 
+                    : 'bg-gray-50 text-gray-500 hover:bg-gray-100 border-gray-100'
+                }`}
+                title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              >
+                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+
               <button
                 onClick={() => {
                   setErrorMsg('');

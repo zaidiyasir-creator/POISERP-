@@ -15,3 +15,162 @@
   --color-brand-950: #2D000D;
 }
 
+/* Global Dark Mode Style Declarations */
+html.dark {
+  color-scheme: dark;
+}
+
+.dark,
+.dark body,
+.dark #root {
+  background-color: #020617 !important; /* Midnight slate background */
+  color: #f1f5f9 !important;
+}
+
+/* Base content background wrapper under Layout */
+.dark .min-h-screen {
+  background-color: #020617 !important;
+}
+
+/* Cards, standard boxes, headers, panels */
+.dark header,
+.dark .bg-white {
+  background-color: #0f172a !important; /* slate-900 */
+  border-color: #1e293b !important; /* slate-800 */
+  color: #f1f5f9 !important;
+}
+
+/* Borders across tables, forms, and layout separators */
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300,
+.dark .border-slate-800,
+.dark .divide-y > :not([hidden]) ~ :not([hidden]) {
+  border-color: #1e293b !important;
+}
+
+/* Dark mode typography colors */
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6 {
+  color: #f8fafc !important;
+}
+
+.dark .text-gray-600,
+.dark .text-gray-500,
+.dark .text-slate-600,
+.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.dark .text-gray-400,
+.dark .text-slate-400 {
+  color: #64748b !important;
+}
+
+/* Background utilities */
+.dark .bg-gray-50,
+.dark .bg-gray-50\/50,
+.dark .bg-slate-50,
+.dark .bg-slate-50\/50,
+.dark .bg-slate-50\/80 {
+  background-color: #090d16 !important;
+}
+
+.dark .bg-gray-100,
+.dark .bg-slate-100 {
+  background-color: #1e293b !important;
+}
+
+/* Modals and Dialog Panels */
+.dark .bg-white.rounded-xl,
+.dark .bg-white.rounded-2xl {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+}
+
+/* Tables in dark mode */
+.dark table {
+  background-color: #0f172a !important;
+  color: #f1f5f9 !important;
+}
+
+.dark tr {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+}
+
+.dark tr:hover {
+  background-color: #1e293b !important;
+}
+
+.dark th {
+  background-color: #090d16 !important;
+  color: #cbd5e1 !important;
+  border-color: #1e293b !important;
+}
+
+.dark td {
+  color: #f1f5f9 !important;
+  border-color: #1e293b !important;
+}
+
+/* Inputs, Textareas, Select lists */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #0f172a !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  border-color: #c5003e !important;
+  --tw-ring-color: #c5003e !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #475569 !important;
+}
+
+/* Interactive elements / Grey buttons */
+.dark .bg-gray-50.hover\:bg-gray-100:hover {
+  background-color: #1e293b !important;
+}
+
+.dark .bg-slate-100.hover\:bg-slate-200:hover {
+  background-color: #334155 !important;
+}
+
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-slate-50:hover {
+  background-color: #1e293b !important;
+}
+
+/* Custom scrollbars for dark mode */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: #090d16;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
